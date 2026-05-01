@@ -1,0 +1,136 @@
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+Standard:        Latest
+
+# --- Indentation -----------------------------------------------------------
+IndentWidth:                    4
+TabWidth:                       4
+UseTab:                         Never
+ContinuationIndentWidth:        4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset:           -4
+NamespaceIndentation:           None
+IndentCaseLabels:               true
+IndentCaseBlocks:               false
+IndentPPDirectives:             None
+IndentWrappedFunctionNames:     false
+IndentExternBlock:              AfterExternBlock
+LambdaBodyIndentation:          Signature
+
+# --- Braces: Allman --------------------------------------------------------
+BreakBeforeBraces:              Allman
+
+# --- Line length -----------------------------------------------------------
+ColumnLimit:                    120
+ReflowComments:                 false
+BreakStringLiterals:            true
+
+# --- Pointer / reference: left --------------------------------------------
+PointerAlignment:               Left
+ReferenceAlignment:             Left
+DerivePointerAlignment:         false
+QualifierAlignment:             Leave
+
+# --- Short statements ------------------------------------------------------
+AllowShortIfStatementsOnASingleLine:   WithoutElse
+AllowShortLoopsOnASingleLine:          false
+AllowShortFunctionsOnASingleLine:      All
+AllowShortBlocksOnASingleLine:         Always
+AllowShortCaseLabelsOnASingleLine:     true
+AllowShortLambdasOnASingleLine:        All
+AllowShortEnumsOnASingleLine:          false
+
+# --- Alignment (Go-style: sve ON) -----------------------------------------
+AlignAfterOpenBracket:          Align
+AlignOperands:                  Align
+AlignEscapedNewlines:           Left
+AlignArrayOfStructures:         Left
+AlignConsecutiveAssignments:
+    Enabled:         true
+    AcrossEmptyLines: false
+    AcrossComments:  false
+    AlignCompound:   true
+    PadOperators:    true
+AlignConsecutiveDeclarations:
+    Enabled:         true
+    AcrossEmptyLines: false
+    AcrossComments:  false
+AlignConsecutiveMacros:
+    Enabled:         true
+    AcrossEmptyLines: false
+    AcrossComments:  false
+AlignConsecutiveBitFields:
+    Enabled:         true
+    AcrossEmptyLines: false
+    AcrossComments:  false
+AlignTrailingComments:
+    Kind:           Always
+    OverEmptyLines: 0
+
+# --- Spaces ----------------------------------------------------------------
+SpaceBeforeParens:                       ControlStatements
+SpaceAfterCStyleCast:                    true
+SpaceAfterLogicalNot:                    false
+SpaceAfterTemplateKeyword:               true
+SpaceBeforeAssignmentOperators:          true
+SpaceBeforeCaseColon:                    false
+SpaceBeforeCpp11BracedList:              false
+SpaceBeforeCtorInitializerColon:         true
+SpaceBeforeInheritanceColon:             true
+SpaceBeforeRangeBasedForLoopColon:       true
+SpaceBeforeSquareBrackets:               false
+SpaceInEmptyBlock:                       false
+SpaceInEmptyParentheses:                 false
+SpacesBeforeTrailingComments:            1
+SpacesInAngles:                          Never
+SpacesInCStyleCastParentheses:           false
+SpacesInConditionalStatement:            false
+SpacesInContainerLiterals:               false
+SpacesInParentheses:                     false
+SpacesInSquareBrackets:                  false
+BitFieldColonSpacing:                    Both
+
+# --- Includes: auto sort + regroup -----------------------------------------
+SortIncludes:                   CaseSensitive
+SortUsingDeclarations:          true
+IncludeBlocks:                  Regroup
+IncludeCategories:
+    # "own_header.h" (project-local, quoted) -> Priority 1
+    - Regex:    '^".*"'
+      Priority: 1
+    # std C++ headers bez ekstenzije: <vector>, <string> -> Priority 2
+    - Regex:    '^<[[:alnum:]_]+>'
+      Priority: 2
+    # ostali <*.h> (third-party libs, npr. <GL/glew.h>) -> Priority 3
+    - Regex:    '^<.*\.(h|hpp|hxx)>'
+      Priority: 3
+    # sistem (Windows/DirectX/WinSock) -> Priority 4 (poslednja grupa)
+    - Regex:    '^<(windows|winsock|d3d|direct|Xinput|dxgi|wrl|combaseapi)'
+      Priority: 4
+IncludeIsMainRegex:             '(Test)?$'
+
+# --- Line wrapping / packing ----------------------------------------------
+AllowAllArgumentsOnNextLine:               true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments:                          false
+BinPackParameters:                         false
+BreakBeforeBinaryOperators:                None
+BreakBeforeConceptDeclarations:            Always
+BreakBeforeTernaryOperators:               true
+BreakConstructorInitializers:              BeforeColon
+BreakInheritanceList:                      BeforeColon
+PackConstructorInitializers:               Never
+
+# --- Empty lines -----------------------------------------------------------
+MaxEmptyLinesToKeep:                 1
+KeepEmptyLinesAtTheStartOfBlocks:    false
+EmptyLineBeforeAccessModifier:       LogicalBlock
+EmptyLineAfterAccessModifier:        Never
+SeparateDefinitionBlocks:            Leave
+
+# --- C++ specifics ---------------------------------------------------------
+FixNamespaceComments:           true
+Cpp11BracedListStyle:           true
+CompactNamespaces:              false
+...
