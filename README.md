@@ -5,7 +5,8 @@ Moji clang-format / clang-tidy / clangd profili + pre-commit hook koji ih enforc
 ```
 std/      .clang-format  .clang-tidy  .clangd    generalni C++23 (trailing return, PascalCase)
 unreal/   .clang-format  .clang-tidy  .clangd    Unreal Engine (tabovi, Allman, UHT-safe)
-hooks/pre-commit                                 format check + hard cap 50 linija po funkciji
+hooks/pre-commit                                 fail-closed: format, NOLINT disciplina, hard cap 50, ostali pragovi
+tests/run.sh                                     installer + hook + samples; isto sto CI pokrece
 install.sh                                       ubaci profil + hook + LLM instrukcije u projekat
 llm/AGENTS.md                                    instrukcije za Claude Code / Codex (ide kao AGENTS.md + CLAUDE.md)
 samples/                                         referentni kod; CI ga formatira i tidy-uje
@@ -14,12 +15,16 @@ samples/                                         referentni kod; CI ga formatira
 
 ## LLM instrukcije
 
-`llm/AGENTS.md` je jedan fajl sa svime sto model treba da zna da ne moras da ponavljas:
-C++23 / UE C++20, production-only kod, ≤30 linija po funkciji (30–50 samo one-shot, 50 hard cap),
-svaka funkcija verifikovana (asserti u kodu + test po svakoj grani, cilj 100 % assertion coverage),
-format + tidy + build + testovi pre "gotovo", UE sekcija (Epic docs i engine source pre memorije,
-UPROPERTY/GC, `.generated.h`, bez trailing return na UFUNCTION…), i "definition of done"
-sablon za izvestaj. `install.sh` ga kopira kao `AGENTS.md` (Codex) i `CLAUDE.md` (Claude Code)
+`llm/AGENTS.md` je jedan fajl sa svime sto model treba da zna da ne moras da ponavljas.
+Pravila su u tri nivoa da model zna sta sme da prekrsi kad se sudare:
+**MUST** (tacnost, ownership, production-only, minimalan scope, prati postojeci kod, ne izmisljaj API,
+verifikuj pre izvestaja, izvestavaj posteno) → **SHOULD** (≤30 linija / one-shot 30–50, asserti za
+*stvarne* invariante, testovi po granama koje pozivalac vidi + eksplicitna lista nepokrivenog, jezik
+profila kad pojednostavljuje a ne ritualno) → **STYLE** (alati su vlasnici). UE sekcija: hijerarhija
+autoriteta (engine source ove verzije → Epic standard → docs), tabela lifetime obrazaca
+(`TObjectPtr`/`TWeakObjectPtr`/subobject/raw lokalni), refleksija, `Super::` osim kad ugovor kaze
+drugacije, threading kao "nista nije thread-safe dok API ne kaze", moduli, tooling. Na kraju
+"Done" sablon za izvestaj. `install.sh` ga kopira kao `AGENTS.md` (Codex) i `CLAUDE.md` (Claude Code)
 sa upisanim aktivnim profilom. Menjaj ga ovde, ne u projektu.
 
 ## Instalacija u projekat
@@ -27,18 +32,21 @@ sa upisanim aktivnim profilom. Menjaj ga ovde, ne u projektu.
 ```sh
 ./install.sh std    ~/Projects/Foo
 ./install.sh unreal /opt/starling/StarlingSim
-./install.sh unreal /opt/starling/StarlingSim --link    # simlink umesto kopije (prati repo)
+./install.sh unreal /opt/starling/StarlingSim --link    # .clang-* kao simlink na repo
 ./install.sh std    ~/Projects/Foo --force              # pregazi postojece
 ```
 
 Kopira `.clang-format`, `.clang-tidy`, `.clangd`, `.editorconfig`, `AGENTS.md`, `CLAUDE.md`
-u root projekta i `hooks/pre-commit` u `.git/hooks/`. Postojece fajlove ne dira bez `--force`.
+u root projekta i `hooks/pre-commit` u `<git-dir>/hooks/` (apsolutna putanja — radi iz bilo kog cwd-a).
+Postojece fajlove ne dira bez `--force`. `--link` simlinkuje **samo** tri `.clang-*` fajla;
+`.editorconfig` (generisan za unreal), `AGENTS.md`/`CLAUDE.md` (upisan profil) i hook su uvek kopije.
+Pazi: `--force` pregazi i lokalno prilagodjen `.clangd` (npr. fragment koji gasi tidy za third-party plugine).
 
 Alati (bez sudo, pip wheel):
 
 ```sh
 python3 -m venv ~/.local/opt/clang-tools
-~/.local/opt/clang-tools/bin/pip install clang-format clang-tidy
+~/.local/opt/clang-tools/bin/pip install 'clang-format==23.1.0' 'clang-tidy==22.1.8'   # verzije na kojima je testirano
 ln -s ~/.local/opt/clang-tools/bin/clang-{format,tidy} ~/.local/bin/
 ```
 
@@ -49,8 +57,10 @@ ln -s ~/.local/opt/clang-tools/bin/clang-{format,tidy} ~/.local/bin/
 | Funkcija ≤ 30 linija | clang-tidy warning u editoru (`readability-function-size`) |
 | 30–50 linija | dozvoljeno **samo** uz `// NOLINTNEXTLINE(readability-function-size) one-shot: <razlog>` |
 | > 50 linija | **pre-commit odbija commit**. NOLINT ne pomaze — hook proverava kopiju sa izbrisanim NOLINT-ovima |
+| ≤ 5 parametara, nesting ≤ 4, branches ≤ 8, variables ≤ 12 | clang-tidy **i** hook na kopiji bez NOLINT-a — one-shot izuzetak vazi samo za broj linija |
+| NOLINT disciplina | hook: `NOLINT*` bez liste check-ova (gasi sve) je zabranjen; za function-size jedini oblik je one-shot sa razlogom |
+| Fail-closed | hook: nema clang-format/clang-tidy/python3 → odbijeno; clang-tidy ne moze da parsira fajl (UE bez `compile_commands.json`) → odbijeno |
 | Kognitivna kompleksnost ≤ 15 | clang-tidy |
-| ≤ 5 parametara, ugnezdenje ≤ 4 | clang-tidy |
 | Obavezne viticaste (`if (x) { … }`) | clang-format `InsertBraces` + tidy `braces-around-statements` (error) |
 | Fajl formatiran | pre-commit (`--dry-run --Werror` na staged sadrzaju) |
 | PascalCase (kao UE) | `readability-identifier-naming`; 1–2 slova (`i`, `dt`) prolaze |
@@ -87,15 +97,24 @@ cp <EngineRoot>/compile_commands.json /path/Foo/
 
 (`milos_unreal` u nvim-u ovo radi sam preko `:MURegen`.)
 
-## CI
+## Testovi / CI
 
-`.github/workflows/lint.yml`: oba profila parsiraju, `samples/` su formatirani i prolaze tidy
-sa 0 warninga, i hook u praznom repo-u odbija funkciju od 60 linija. Ako promenis profil a
-ne azuriras `samples/` — CI pukne. Namerno.
+`./tests/run.sh` (isto pokrece `.github/workflows/lint.yml`, sa pinovanim `clang-format==23.1.0`,
+`clang-tidy==22.1.8`): installer iz tudjeg cwd-a stavlja hook u pravi repo, `unreal --link` nema
+pokvarenih simlinkova, placeholder zamenjen; hook — 20 linija prolazi, 40 one-shot sa razlogom
+prolazi, bez razloga pada, 60 sa one-shot pada (hard cap), `NOLINTBEGIN` pada, goli `NOLINTNEXTLINE`
+pada, NOLINT za drugi check prolazi, neformatiran pada, 7 parametara sa one-shot pada, neparsirljiv
+fajl pada, bez clang-tidy pada, nema zaostalih temp fajlova; samples — formatirani, tidy-clean sa
+`--warnings-as-errors=*`, `RunOnce` je *stvarno* >30 linija, `SampleTest` se kompajlira i prolazi.
+Ako promenis profil a ne azuriras `samples/` — pukne. Namerno.
+
+`samples/std/` prati `llm/AGENTS.md` doslovno: `[[nodiscard]]` gde rezultat nosi informaciju,
+`assert` samo za interne invariante, `std::expected` za greske pozivaoca, `SampleTest.cpp` sa
+assertom po grani i listom pokrivenog u zaglavlju.
 
 Re-formatiranje sample-ova posle izmene profila:
 
 ```sh
-clang-format --style=file:std/.clang-format    -i samples/std/*
+clang-format --style=file:std/.clang-format    -i samples/std/*.cpp samples/std/*.h
 clang-format --style=file:unreal/.clang-format -i samples/unreal/*.{cpp,h} samples/unreal/stub/CoreMinimal.h
 ```

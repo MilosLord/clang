@@ -1,89 +1,107 @@
 #!/usr/bin/env bash
-# pre-commit hook: enforcement koji NE MOZE da se zaobidje NOLINT-om.
+# pre-commit hook — FAIL-CLOSED enforcement. Ako nesto ne moze da se proveri, commit pada.
 #
-#   1. clang-format --dry-run --Werror  na svim staged C/C++ fajlovima
-#   2. hard cap: nijedna funkcija > 50 linija.
-#      NOLINT je in-source supresija i radi bez obzira na --config, pa hook proverava
-#      KOPIJU staged sadrzaja u kojoj je svaki `NOLINT*` zamenjen sa `NOLINT_OFF`.
-#      Kopija ide u isti direktorijum (.precommit_<ime>) da relativni include-ovi rade,
-#      a ako projekat ima compile_commands.json, kopiji se podmetne compile komanda
-#      originala (privremeni compile_commands.json) da se UE/CMake kod parsira kako treba.
+#   1. clang-format --dry-run --Werror na STAGED sadrzaju svakog C/C++ fajla
+#   2. NOLINT disciplina:
+#        - jedini dozvoljeni oblik za velicinu funkcije je
+#            // NOLINTNEXTLINE(readability-function-size) one-shot: <razlog>
+#        - NOLINT / NOLINTNEXTLINE / NOLINTBEGIN bez liste check-ova (gase SVE) su zabranjeni
+#        - NOLINT(readability-function-size) i NOLINTBEGIN(...function-size...) su zabranjeni
+#   3. hard cap: nijedna funkcija > 50 linija — proverava se KOPIJA sa uklonjenim NOLINT-ovima
+#      (NOLINT je in-source supresija, --config ne moze da je pregazi)
+#   4. ostali pragovi readability-function-size iz projektnog .clang-tidy (parametri, nesting,
+#      branches, variables) — takodje na kopiji bez NOLINT-a, sa LineThreshold iskljucenim.
+#      One-shot izuzetak vazi SAMO za broj linija.
 #
-# Editor (clangd + .clang-tidy iz projekta) prijavljuje warning vec na 30 linija;
-# 30..50 je dozvoljeno samo uz `// NOLINTNEXTLINE(readability-function-size) one-shot: <razlog>`.
+#   Kopija ide u isti direktorijum (.precommit_<ime>) da relativni include-ovi rade; ako projekat
+#   ima compile_commands.json, kopiji se podmetne compile komanda originala. Ako clang-tidy ne
+#   moze da parsira fajl (npr. UE bez compile_commands.json) -> commit ODBIJEN, ne preskocen.
 #
-# Instalira ga: install.sh <profil> <project_dir>   (kopira u .git/hooks/pre-commit)
 # Zaobilazenje u nuzdi: git commit --no-verify   (i objasni u poruci zasto)
 
-set -euo pipefail
+set -uo pipefail
 
 HARD_CAP_LINES="${CLANG_HOOK_HARD_CAP:-50}"
 CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
 CLANG_TIDY="${CLANG_TIDY:-clang-tidy}"
 
-repo_root="$(git rev-parse --show-toplevel)"
+red()    { printf '\033[31m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+die()    { red "pre-commit: $*"; red "pre-commit: ODBIJENO."; exit 1; }
+
+repo_root="$(git rev-parse --show-toplevel)" || die "nije git repo?"
 cd "$repo_root"
 
 mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR \
     | grep -E '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inl)$' \
     | grep -vE '(\.generated\.h|\.gen\.cpp|/Intermediate/|/Binaries/|/ThirdParty/)' || true)
+[[ ${#staged[@]} -eq 0 ]] && exit 0
 
-if [[ ${#staged[@]} -eq 0 ]]; then
-    exit 0
-fi
-
-red()    { printf '\033[31m%s\033[0m\n' "$*"; }
-green()  { printf '\033[32m%s\033[0m\n' "$*"; }
-yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+# alati su obavezni — bez njih nema "hard cap"
+command -v "$CLANG_FORMAT" >/dev/null 2>&1 || die "'$CLANG_FORMAT' nije na PATH-u (pip install clang-format, ili CLANG_FORMAT=/putanja)"
+command -v "$CLANG_TIDY"   >/dev/null 2>&1 || die "'$CLANG_TIDY' nije na PATH-u (pip install clang-tidy, ili CLANG_TIDY=/putanja)"
+command -v python3         >/dev/null 2>&1 || die "python3 nije na PATH-u"
 
 fail=0
 tmp_files=()
-tmp_db_dir=""
-cleanup() {
-    [[ ${#tmp_files[@]} -gt 0 ]] && rm -f "${tmp_files[@]}"
-    [[ -n "$tmp_db_dir" ]] && rm -rf "$tmp_db_dir"
-    return 0
-}
+tmp_dir="$(mktemp -d)"
+cleanup() { [[ ${#tmp_files[@]} -gt 0 ]] && rm -f "${tmp_files[@]}"; rm -rf "$tmp_dir"; return 0; }
 trap cleanup EXIT
 
-# ---------------------------------------------------------------- 1. format ---
-if ! command -v "$CLANG_FORMAT" >/dev/null 2>&1; then
-    red "pre-commit: '$CLANG_FORMAT' nije na PATH-u. Instaliraj ga ili postavi CLANG_FORMAT=..."
-    exit 1
-fi
-
+# ------------------------------------------------------------------ 1. format ---
 format_bad=()
 for f in "${staged[@]}"; do
-    # proveravamo STAGED sadrzaj, ne radni fajl (mogu da se razlikuju)
     if ! git show ":$f" | "$CLANG_FORMAT" --assume-filename="$f" --dry-run --Werror >/dev/null 2>&1; then
         format_bad+=("$f")
     fi
 done
-
 if [[ ${#format_bad[@]} -gt 0 ]]; then
-    red "pre-commit: clang-format — sledeci fajlovi nisu formatirani:"
+    red "pre-commit: clang-format — nisu formatirani:"
     printf '    %s\n' "${format_bad[@]}"
     yellow "    fix:  $CLANG_FORMAT -i ${format_bad[*]} && git add ${format_bad[*]}"
     fail=1
 fi
 
-# ------------------------------------------------------- 2. hard cap 50 lin ---
-if ! command -v "$CLANG_TIDY" >/dev/null 2>&1; then
-    yellow "pre-commit: '$CLANG_TIDY' nije na PATH-u — preskacem proveru velicine funkcija."
-else
-    # compile_commands.json: root, ./build, ili gde vec
-    db=""
-    for cand in . build out/build Build; do
-        if [[ -f "$cand/compile_commands.json" ]]; then db="$cand/compile_commands.json"; break; fi
-    done
+# --------------------------------------------------------- 2. NOLINT disciplina ---
+nolint_bad=()
+for f in "${staged[@]}"; do
+    while IFS= read -r hit; do
+        [[ -z "$hit" ]] && continue
+        lineno="${hit%%:*}"; text="${hit#*:}"
+        # dozvoljeno: NOLINTNEXTLINE(readability-function-size) one-shot: <nesto>
+        if [[ "$text" =~ NOLINTNEXTLINE\(readability-function-size\)[[:space:]]+one-shot:[[:space:]]*[^[:space:]] ]]; then
+            continue
+        fi
+        # dozvoljeno: NOLINT* sa listom check-ova koja NE sadrzi function-size i nije prazna
+        if [[ "$text" =~ NOLINT(NEXTLINE|BEGIN|END)?\(([^\)]+)\) ]]; then
+            checks="${BASH_REMATCH[2]}"
+            if [[ "$checks" != *"readability-function-size"* && "$checks" != *"readability-*"* && "$checks" != "*" ]]; then
+                continue
+            fi
+        fi
+        # NOLINTEND bez liste je ok samo ako je i BEGIN imao listu — uprosceno: END bez liste zabranjujemo
+        nolint_bad+=("$f:$lineno: ${text#"${text%%[![:space:]]*}"}")
+    done < <(git show ":$f" | grep -nE 'NOLINT' || true)
+done
+if [[ ${#nolint_bad[@]} -gt 0 ]]; then
+    red "pre-commit: nedozvoljen NOLINT (za velicinu funkcije jedini oblik je"
+    red "            '// NOLINTNEXTLINE(readability-function-size) one-shot: <razlog>'; bez liste check-ova je zabranjeno):"
+    printf '    %s\n' "${nolint_bad[@]}"
+    fail=1
+fi
 
-    tmp_db_dir="$(mktemp -d)"
+# ------------------------------------ 3+4. velicina funkcije na kopiji bez NOLINT ---
+db=""
+for cand in . build out/build Build; do
+    [[ -f "$cand/compile_commands.json" ]] && { db="$cand/compile_commands.json"; break; }
+done
 
-    # Pravi .precommit_<ime> kopije bez NOLINT-a + privremeni compile_commands.json
-    # u kome su fajlovi originala zamenjeni kopijama. Ispisuje: <tmp>\t<orig>\t<has_cmd>
-    mapfile -t mapping < <(python3 - "$repo_root" "$db" "$tmp_db_dir" "${staged[@]}" <<'PY'
+# Pravi .precommit_<ime> kopije bez NOLINT-a + privremeni compile_commands.json.
+# Ispisuje: <tmp>\t<orig>\t<has_cmd>
+mapfile -t mapping < <(python3 - "$repo_root" "$db" "$tmp_dir" "${staged[@]}" <<'PY'
 import json, os, re, subprocess, sys
-root, db, tmp_db_dir, *files = sys.argv[1:]
+root, db, tmp_dir, *files = sys.argv[1:]
 entries = {}
 if db:
     try:
@@ -104,65 +122,68 @@ for f in files:
     e = entries.get(orig_abs)
     has = "0"
     if e:
-        e = dict(e)
-        e["file"] = tmp_abs
+        e = dict(e); e["file"] = tmp_abs
         if "command" in e:
             e["command"] = e["command"].replace(orig_abs, tmp_abs).replace(f, tmp)
         if "arguments" in e:
             e["arguments"] = [a.replace(orig_abs, tmp_abs).replace(f, tmp) for a in e["arguments"]]
         e.pop("output", None)
-        out_db.append(e)
-        has = "1"
+        out_db.append(e); has = "1"
     print(f"{tmp}\t{f}\t{has}")
-json.dump(out_db, open(os.path.join(tmp_db_dir, "compile_commands.json"), "w"))
+json.dump(out_db, open(os.path.join(tmp_dir, "compile_commands.json"), "w"))
 PY
-)
+) || die "priprema kopija nije uspela"
 
-    with_cmd=(); without_cmd=()
-    declare -A back
-    for line in "${mapping[@]}"; do
-        IFS=$'\t' read -r tmp orig has <<<"$line"
-        tmp_files+=("$tmp"); back["$tmp"]="$orig"
-        if [[ "$has" == "1" ]]; then with_cmd+=("$tmp"); else without_cmd+=("$tmp"); fi
-    done
+cap_cfg="{CheckOptions: {readability-function-size.LineThreshold: ${HARD_CAP_LINES}, readability-function-size.StatementThreshold: -1, readability-function-size.BranchThreshold: -1, readability-function-size.ParameterThreshold: -1, readability-function-size.NestingThreshold: -1, readability-function-size.VariableThreshold: -1}}"
 
-    tidy_common=(
-        --quiet
-        --checks='-*,readability-function-size'
-        --config="{CheckOptions: {readability-function-size.LineThreshold: ${HARD_CAP_LINES}, readability-function-size.StatementThreshold: -1, readability-function-size.BranchThreshold: -1, readability-function-size.ParameterThreshold: -1, readability-function-size.NestingThreshold: -1, readability-function-size.VariableThreshold: -1}}"
-        --warnings-as-errors='readability-function-size'
-    )
+cap_bad=(); other_bad=(); analyze_bad=()
+for line in "${mapping[@]}"; do
+    IFS=$'\t' read -r tmp orig has <<<"$line"
+    tmp_files+=("$tmp")
+    if [[ "$has" == "1" ]]; then comp=(-p "$tmp_dir"); else comp=(--); fi
 
-    cap_out=""
-    if [[ ${#with_cmd[@]} -gt 0 ]]; then
-        cap_out+="$("$CLANG_TIDY" "${tidy_common[@]}" -p "$tmp_db_dir" "${with_cmd[@]}" 2>/dev/null \
-            | grep -E 'readability-function-size|threshold' || true)"$'\n'
+    # (3) hard cap — sopstveni config, samo broj linija
+    out="$("$CLANG_TIDY" --quiet --checks='-*,readability-function-size' --config="$cap_cfg" \
+            --warnings-as-errors='readability-function-size' "$tmp" "${comp[@]}" 2>&1 \
+            | grep -vE 'warnings? generated|^Error while|^Could not auto-detect|^No compilation database|compilation-database:|^Running without flags' || true)"
+    if printf '%s\n' "$out" | grep -qE 'readability-function-size'; then
+        cap_bad+=("$(printf '%s\n' "$out" | grep -E 'readability-function-size|threshold' | sed "s#$repo_root/##g; s#$tmp#$orig#g")")
     fi
-    if [[ ${#without_cmd[@]} -gt 0 ]]; then
-        # bez compile komande: parsiraj bez flagova (dovoljno za brojanje linija)
-        cap_out+="$("$CLANG_TIDY" "${tidy_common[@]}" "${without_cmd[@]}" -- 2>/dev/null \
-            | grep -E 'readability-function-size|threshold' || true)"
+    # bilo koji drugi error = nismo mogli da analiziramo -> fail-closed
+    if printf '%s\n' "$out" | grep -E ' error: ' | grep -qvE 'readability-function-size'; then
+        analyze_bad+=("$orig: $(printf '%s\n' "$out" | grep -E ' error: ' | grep -vE 'readability-function-size' | head -1 | sed "s#$repo_root/##g; s#$tmp#$orig#g")")
+        continue
     fi
 
-    # ime kopije -> ime originala u izvestaju
-    for tmp in "${!back[@]}"; do
-        cap_out="${cap_out//$tmp/${back[$tmp]}}"
-        cap_out="${cap_out//$repo_root\//}"
-    done
-    cap_out="$(printf '%s' "$cap_out" | sed '/^[[:space:]]*$/d')"
-
-    if [[ -n "$cap_out" ]]; then
-        red "pre-commit: funkcija preko ${HARD_CAP_LINES} linija (hard cap, NOLINT ne pomaze):"
-        printf '%s\n' "$cap_out" | sed 's/^/    /'
-        yellow "    Razbij funkciju. Ako je stvarno one-shot, 30..50 je granica, ne vise."
-        fail=1
+    # (4) ostali pragovi iz projektnog .clang-tidy, LineThreshold iskljucen
+    dumped="$("$CLANG_TIDY" --dump-config "$tmp" "${comp[@]}" 2>/dev/null || true)"
+    if [[ -n "$dumped" ]] && printf '%s' "$dumped" | grep -qE 'readability-function-size\.(Parameter|Nesting|Branch|Variable|Statement)Threshold'; then
+        cfg_file="$tmp_dir/other.$(basename "$tmp").yaml"
+        printf '%s\n' "$dumped" | sed -E "s/^([[:space:]]*readability-function-size\.LineThreshold:).*/\1 '-1'/" > "$cfg_file"
+        out2="$("$CLANG_TIDY" --quiet --config-file="$cfg_file" --checks='-*,readability-function-size' \
+                --warnings-as-errors='readability-function-size' "$tmp" "${comp[@]}" 2>&1 \
+                | grep -E 'readability-function-size|threshold' || true)"
+        [[ -n "$out2" ]] && other_bad+=("$(printf '%s\n' "$out2" | sed "s#$repo_root/##g; s#$tmp#$orig#g")")
     fi
+done
+
+if [[ ${#analyze_bad[@]} -gt 0 ]]; then
+    red "pre-commit: clang-tidy ne moze da analizira (fail-closed). UE projekat? -> generisi compile_commands.json u root:"
+    printf '    %s\n' "${analyze_bad[@]}"
+    fail=1
+fi
+if [[ ${#cap_bad[@]} -gt 0 ]]; then
+    red "pre-commit: funkcija preko ${HARD_CAP_LINES} linija (hard cap, NOLINT ne pomaze):"
+    printf '%s\n' "${cap_bad[@]}" | sed 's/^/    /'
+    yellow "    Razbij funkciju. One-shot izuzetak ide do 50, ne dalje."
+    fail=1
+fi
+if [[ ${#other_bad[@]} -gt 0 ]]; then
+    red "pre-commit: prekoracen prag (parametri/nesting/branches/variables) — one-shot NOLINT vazi samo za broj linija:"
+    printf '%s\n' "${other_bad[@]}" | sed 's/^/    /'
+    fail=1
 fi
 
-if [[ $fail -ne 0 ]]; then
-    red "pre-commit: ODBIJENO."
-    exit 1
-fi
-
+[[ $fail -ne 0 ]] && die "vidi gore"
 green "pre-commit: OK (${#staged[@]} fajl/ova)"
 exit 0
