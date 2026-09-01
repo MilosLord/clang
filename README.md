@@ -129,6 +129,17 @@ stabala, ne pogadja nasumicno nego odbija; izaberi jednom po repo-u:
 `git config clang.tidyBuildDir build/<preset>` (ili po commitu `CLANG_TIDY_BUILD_DIR=... git commit`).
 Oba prihvataju direktorijum ili direktnu putanju do `compile_commands.json`.
 
+### UE: lekcije iz prakse (u AGENTS-u, sekcija "Build & run")
+
+Iz prave sesije na StarlingSim-u, sve provereno: `Build.sh` traži `-Project=/abs/… -WaitMutex`;
+build puca sa besmislenom hot-reload porukom ako je Editor otvoren (`pgrep -x UnrealEditor` pre
+svakog builda); UE odbija root (`Refusing to run with the root privileges` + core dump); headless
+traži `-RenderOffscreen -Unattended -NoSound -nosplash`; **Editor-clean ≠ package-clean** — dinamički
+učitani Blueprint-ovi (AirSim) ispadaju iz cook-a bez `+DirectoriesToAlwaysCook`, vidi se tek pri
+startu paketa; `LogConfig: Set CVar` znači *postavljeno*, ne *primenjeno* — meri efekat; editor Python:
+`unreal.log()` ne ide na stdout u commandlet režimu, `new_level()` ćuti ako mapa postoji,
+`unreal.Rotator(roll, pitch, yaw)`. Done šablon ima poseban red za cook/package.
+
 ### UE: compile_commands.json
 
 Bez njega je clangd slep (`CoreMinimal.h not found`). UBT ga pise u **engine** root, ne u projekat:

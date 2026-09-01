@@ -32,9 +32,12 @@ Rules are tiered; when they collide, the higher tier wins:
 8. **Never invent an API.** Unsure of a signature → open the header (`std`: cppreference / the
    installed stdlib; `unreal`: `<EngineRoot>/Engine/Source`, which outranks online docs).
 9. **Verify before you report**: build actually run on the relevant compiler/config (`std`:
-   the project's target; `unreal`: UBT Editor target); `clang-format -i` + `clang-tidy` on
-   touched files, findings fixed; focused regression test, then the relevant suite; pre-commit
-   passes (never `--no-verify`). A test that did not exercise the changed path is not evidence.
+   the project's target; `unreal`: UBT Editor target, and a cook/package when assets, plugins
+   or packaging config changed — see §UE); `clang-format -i` + `clang-tidy` on touched files,
+   findings fixed; focused regression test, then the relevant suite; pre-commit passes (never
+   `--no-verify`). A test that did not exercise the changed path is not evidence. **Verify the
+   effect, not the setting**: a value echoed in a log or config was *set*, not necessarily
+   *applied* — measure the observable result.
 10. **Report honestly** in the §Done format: what ran, what it printed, what was not verified
     and why. "Should work" is not a status.
 
@@ -126,14 +129,41 @@ go in `*.Build.cs` (`Public…` vs `Private…DependencyModuleNames`). Editor-on
 
 **Tooling:** after adding/removing sources or touching `Build.cs`, regenerate
 `compile_commands.json` (`RunUBT.sh -Mode=GenerateClangDatabase …`, copied from the engine root
-into the project). Third-party plugins (`Plugins/AirSim`, `Plugins/CesiumForUnreal`, …) are
-upstream code: no restyling, no warning "fixes", minimal marked patches only.
+into the project). Keep clang-tidy/clangd on the same LLVM major as the engine's bundled clang
+(`Engine/Extras/ThirdPartyNotUE/SDKs/…/v<N>_clang-<ver>`; 5.8 → clang 20) or newer — an older
+tidy reports false positives on C++20 constructs. Third-party plugins (`Plugins/AirSim`,
+`Plugins/CesiumForUnreal`, …) are upstream code: no restyling, no warning "fixes", minimal
+marked patches only.
+
+**Build & run — learned the hard way, all verified on Linux:**
+- Build: `Engine/Build/BatchFiles/Linux/Build.sh <Project>Editor Linux Development
+  -Project=/abs/path/<Project>.uproject -WaitMutex`. `Build.sh` only forwards to UBT; without
+  `-Project=` it builds the wrong thing, without `-WaitMutex` it fails when another UBT runs.
+- **Close the Editor before building.** With `UnrealEditor` running UBT switches to hot-reload
+  and dies with `Hot-reloadable files are expected to contain a hyphen, eg. UnrealEditor-Core` —
+  nowhere near the cause. `pgrep -x UnrealEditor` first, every time.
+- **Never run UE as root** — `Refusing to run with the root privileges` then a core dump. Agents
+  often are root; switch user before touching the editor, commandlets or a packaged build.
+- Headless (no X server): every editor/commandlet/automation invocation needs
+  `-RenderOffscreen -Unattended -NoSound -nosplash` (or `-nullrhi` when rendering is not under
+  test); e.g. `-ExecCmds="Automation RunTests <Name>"` crashes without them.
+- **Editor-clean ≠ package-clean.** Assets loaded dynamically at runtime (Blueprints by path,
+  plugin content) are skipped by the cooker unless listed in `DefaultGame.ini`
+  `[/Script/UnrealEd.ProjectPackagingSettings]` `+DirectoriesToAlwaysCook`; the failure shows up
+  only at packaged startup (`Failed to load asset class …_C`). Cook/package at least once when
+  assets, plugins or packaging config change, and put it in the Done report.
+- Config ≠ runtime: `LogConfig: Set CVar [[t.MaxFPS:30]]` proves the ini was read, not that the
+  value survived startup (something later overrode it; only `-ExecCmds` stuck). Measure.
+- Editor Python (headless tooling): `unreal.log()` does not reach stdout in commandlet mode —
+  write to a file or use `print`; `unreal.EditorLevelLibrary.new_level()` silently no-ops when the
+  map exists; `unreal.Rotator(roll, pitch, yaw)` — not pitch/yaw/roll.
 
 ## Done — copy into your final report
 
 ```
 Files changed: …
 Build: <OS, compiler, config, command> → OK / FAIL (paste)
+Package/cook (unreal, when assets/plugins/packaging changed): <command> → OK / FAIL / not needed because …
 clang-format: clean
 clang-tidy: clean / <n> remaining: <list + justification>
 Functions > 30 lines: none / <list + one-shot reason>

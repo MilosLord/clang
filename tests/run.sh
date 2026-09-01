@@ -47,6 +47,7 @@ broken="$(find "$l" -maxdepth 1 -xtype l)"
 [[ -L "$l/.clang-format" && -f "$l/.editorconfig" && ! -L "$l/.editorconfig" ]] && ok "--link: .clang-* link, .editorconfig kopija" || bad "--link semantika"
 grep -q '^indent_style = tab' "$l/.editorconfig" && ok "unreal .editorconfig ima tabove" || bad "unreal .editorconfig nema tabove"
 ! grep -qE '^## Build system — CMake|\{\{CMAKE\}\}' "$l/AGENTS.md" && ok "unreal AGENTS.md bez CMake sekcije i bez markera" || bad "unreal AGENTS.md ima CMake sekciju/marker"
+grep -q 'DirectoriesToAlwaysCook' "$l/AGENTS.md" && grep -q 'pgrep -x UnrealEditor' "$l/AGENTS.md" && grep -q 'RenderOffscreen' "$l/AGENTS.md" && ok "unreal AGENTS.md ima build/run/package lekcije" || bad "unreal AGENTS.md bez build/run/package lekcija"
 
 echo "== hook"
 h="$(newrepo hook)"; "$here/install.sh" std "$h" >/dev/null
