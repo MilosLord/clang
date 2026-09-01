@@ -66,6 +66,9 @@ marked patches only.
   write to a file or use `print`; `unreal.EditorLevelLibrary.new_level()` silently no-ops when the
   map exists. **Always keyword arguments for math structs in UE Python.** `Rotator` has three
   different orders — C++ `TRotator(Pitch, Yaw, Roll)`, reflected fields `Pitch, Yaw, Roll`
-  (`NoExportTypes.h`), Python positional `(roll, pitch, yaw)` — so reading the header and writing
-  the same order in Python gives a silently wrong rotation. `unreal.Rotator(roll=0, pitch=-10,
-  yaw=90)` cannot be wrong; `unreal.Rotator(-10, 90, 0)` was.
+  (`NoExportTypes.h`), Python positional `(roll, pitch, yaw)` (measured in the editor; the
+  binding is a generic `TPyWrapperInlineStructFactory`, so the order is not readable from
+  source) — reading the header and writing the same order in Python gives a silently wrong
+  rotation. `unreal.Rotator(roll=0, pitch=-10, yaw=90)` cannot be wrong. Regression check:
+  `tests/unreal/rotator_order_test.py` in `MilosLord/clang`, run via `UnrealEditor-Cmd
+  -run=pythonscript`.

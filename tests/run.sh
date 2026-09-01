@@ -101,6 +101,9 @@ out="$(CLANG_TIDY=/nonexistent/clang-tidy git -C "$h" commit -q -m k 2>&1)"; rc=
 git -C "$h" reset -q
 [[ -z "$(find "$h" -name '.precommit_*')" ]] && ok "nema zaostalih .precommit_* fajlova" || bad "zaostali .precommit_*"
 
+python3 -m py_compile "$here/tests/unreal/rotator_order_test.py" 2>/dev/null && ok "tests/unreal/rotator_order_test.py se parsira (izvrsava se rucno u UnrealEditor-Cmd)" || bad "rotator_order_test.py sintaksa"
+rm -rf "$here/tests/unreal/__pycache__"
+
 echo "== samples"
 ( cd "$here" && clang-format --style=file:std/.clang-format    --dry-run --Werror samples/std/*.cpp samples/std/*.h ) && ok "std samples formatirani" || bad "std samples nisu formatirani"
 ( cd "$here" && clang-format --style=file:unreal/.clang-format --dry-run --Werror samples/unreal/*.cpp samples/unreal/*.h samples/unreal/stub/CoreMinimal.h ) && ok "unreal samples formatirani" || bad "unreal samples nisu formatirani"

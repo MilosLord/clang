@@ -144,7 +144,10 @@ startu paketa; `LogConfig: Set CVar` znači *postavljeno*, ne *primenjeno* — m
 `unreal.log()` ne ide na stdout u commandlet režimu, `new_level()` ćuti ako mapa postoji, a za math
 strukture **uvek keyword argumenti** — `Rotator` ima tri razlicita redosleda (C++ `Pitch,Yaw,Roll`,
 reflektovana polja `Pitch,Yaw,Roll`, Python pozicioni `roll,pitch,yaw`), pa prepisivanje iz headera
-daje tiho pogresnu rotaciju. Done šablon ima poseban red za cook/package.
+daje tiho pogresnu rotaciju. Python redosled se ne vidi iz izvora (genericki
+`TPyWrapperInlineStructFactory<FRotator>`), pa je izmeren; `tests/unreal/rotator_order_test.py`
+to fiksira — pokrece se rucno na masini sa engine-om (komanda u zaglavlju skripte), CI ga samo
+`py_compile`-uje. Done šablon ima poseban red za cook/package.
 
 ### UE: compile_commands.json
 
