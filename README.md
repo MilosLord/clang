@@ -6,10 +6,21 @@ Moji clang-format / clang-tidy / clangd profili + pre-commit hook koji ih enforc
 std/      .clang-format  .clang-tidy  .clangd    generalni C++23 (trailing return, PascalCase)
 unreal/   .clang-format  .clang-tidy  .clangd    Unreal Engine (tabovi, Allman, UHT-safe)
 hooks/pre-commit                                 format check + hard cap 50 linija po funkciji
-install.sh                                       ubaci profil + hook u projekat
+install.sh                                       ubaci profil + hook + LLM instrukcije u projekat
+llm/AGENTS.md                                    instrukcije za Claude Code / Codex (ide kao AGENTS.md + CLAUDE.md)
 samples/                                         referentni kod; CI ga formatira i tidy-uje
 .editorconfig
 ```
+
+## LLM instrukcije
+
+`llm/AGENTS.md` je jedan fajl sa svime sto model treba da zna da ne moras da ponavljas:
+C++23 / UE C++20, production-only kod, ≤30 linija po funkciji (30–50 samo one-shot, 50 hard cap),
+svaka funkcija verifikovana (asserti u kodu + test po svakoj grani, cilj 100 % assertion coverage),
+format + tidy + build + testovi pre "gotovo", UE sekcija (Epic docs i engine source pre memorije,
+UPROPERTY/GC, `.generated.h`, bez trailing return na UFUNCTION…), i "definition of done"
+sablon za izvestaj. `install.sh` ga kopira kao `AGENTS.md` (Codex) i `CLAUDE.md` (Claude Code)
+sa upisanim aktivnim profilom. Menjaj ga ovde, ne u projektu.
 
 ## Instalacija u projekat
 
@@ -20,8 +31,8 @@ samples/                                         referentni kod; CI ga formatira
 ./install.sh std    ~/Projects/Foo --force              # pregazi postojece
 ```
 
-Kopira `.clang-format`, `.clang-tidy`, `.clangd`, `.editorconfig` u root projekta i
-`hooks/pre-commit` u `.git/hooks/`. Postojece fajlove ne dira bez `--force`.
+Kopira `.clang-format`, `.clang-tidy`, `.clangd`, `.editorconfig`, `AGENTS.md`, `CLAUDE.md`
+u root projekta i `hooks/pre-commit` u `.git/hooks/`. Postojece fajlove ne dira bez `--force`.
 
 Alati (bez sudo, pip wheel):
 

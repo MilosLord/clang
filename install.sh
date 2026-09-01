@@ -8,6 +8,7 @@
 # Radi:
 #   * kopira (ili simlinkuje) <profil>/.clang-format .clang-tidy .clangd u root projekta
 #   * kopira .editorconfig (za unreal: prepisuje C++ blok na tabove)
+#   * kopira llm/AGENTS.md kao AGENTS.md + CLAUDE.md sa upisanim profilom
 #   * instalira hooks/pre-commit u .git/hooks/ ako je projekat git repo
 #
 # Postojece fajlove NE pregazi bez --force.
@@ -64,6 +65,24 @@ if [[ "$profile" == "unreal" ]]; then
 else
     put "$here/.editorconfig" "$target/.editorconfig"
 fi
+
+# LLM instructions: AGENTS.md (Codex & co) + CLAUDE.md (Claude Code), isti sadrzaj,
+# sa upisanim aktivnim profilom.
+tmp="$(mktemp)"
+sed "s/{{PROFILE}}/$profile/g" "$here/llm/AGENTS.md" > "$tmp"
+for name in AGENTS.md CLAUDE.md; do
+    if [[ "$mode" == "link" ]]; then
+        # link ne moze (profil se upisuje), pa i u link modu kopiramo
+        if [[ -e "$target/$name" && $force -eq 0 ]]; then
+            echo "  skip   $name  (postoji; --force da pregazis)"
+        else
+            cp "$tmp" "$target/$name"; echo "  copy   $name  (profil: $profile)"
+        fi
+    else
+        put "$tmp" "$target/$name"
+    fi
+done
+rm -f "$tmp"
 
 # git hook
 if git -C "$target" rev-parse --git-dir >/dev/null 2>&1; then

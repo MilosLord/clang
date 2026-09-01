@@ -47,6 +47,8 @@ jobs:
           t="$(mktemp -d)"; cd "$t"
           git init -q . && git config user.email ci@ci && git config user.name ci
           "$GITHUB_WORKSPACE/install.sh" std "$t"
+          grep -q 'Active profile: \*\*std\*\*' AGENTS.md && ! grep -q '{{PROFILE}}' AGENTS.md CLAUDE.md \
+            || { echo "::error::AGENTS.md/CLAUDE.md placeholder nije zamenjen"; exit 1; }
           python3 - <<'PY'
           body = "\n".join("    X += 1;" for _ in range(55))
           open("Big.cpp", "w").write(f"// NOLINTNEXTLINE(readability-function-size)\nauto Big() -> int\n{{\n    int X = 0;\n{body}\n    return X;\n}}\n")
