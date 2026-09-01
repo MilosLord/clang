@@ -10,6 +10,7 @@ tests/run.sh                                     installer + hook + samples; ist
 install.sh                                       ubaci profil + hook + LLM instrukcije u projekat
 llm/AGENTS.md                                    instrukcije za Claude Code / Codex (ide kao AGENTS.md + CLAUDE.md)
 llm/cmake.md                                     CMake sekcija; install.sh je ulepi samo u std profil
+llm/unreal.md                                    UE sekcija; install.sh je ulepi samo u unreal profil
 samples/                                         referentni kod + moderni CMake; CI gradi na Linux/Windows/macOS
 .editorconfig
 ```
@@ -26,9 +27,12 @@ autoriteta (engine source ove verzije → Epic standard → docs), tabela lifeti
 (`TObjectPtr`/`TWeakObjectPtr`/subobject/raw lokalni), refleksija, `Super::` osim kad ugovor kaze
 drugacije, threading kao "nista nije thread-safe dok API ne kaze", moduli, tooling. Na kraju
 "Done" sablon za izvestaj. `install.sh` ga kopira kao `AGENTS.md` (Codex) i `CLAUDE.md` (Claude Code)
-sa upisanim aktivnim profilom; marker `<!-- {{CMAKE}} -->` se za `std` zamenjuje sadrzajem
-`llm/cmake.md`, za `unreal` (UBT) se brise — da unreal projekat ne placa 40 linija mrtvih pravila.
-Menjaj ga ovde, ne u projektu.
+sa upisanim aktivnim profilom. Markeri se pri instalaciji **zamenjuju sadrzajem** (ne referencom —
+agent koji dobije "see llm/x.md" ga cesto ne otvori; finalni fajl je samodovoljan):
+`<!-- {{CMAKE}} -->` → `llm/cmake.md` samo za `std`, `<!-- {{UNREAL}} -->` → `llm/unreal.md` samo za
+`unreal`. Nije samo sum: 55 linija UE pravila u cistom C++23 projektu su direktna kontradikcija sa
+STYLE sekcijom (trailing return obavezan vs. zabranjen, UPROPERTY, `.generated.h`).
+Menjaj ovde, ne u projektu.
 
 Za sto manje revizija model pre prve izmene mapira ugovor, implementaciju, pozivaoce, testove i
 build/CI putanju, pa u istom change-u zatvara svaki pogođeni caller, mock, config,
@@ -137,8 +141,10 @@ svakog builda); UE odbija root (`Refusing to run with the root privileges` + cor
 traži `-RenderOffscreen -Unattended -NoSound -nosplash`; **Editor-clean ≠ package-clean** — dinamički
 učitani Blueprint-ovi (AirSim) ispadaju iz cook-a bez `+DirectoriesToAlwaysCook`, vidi se tek pri
 startu paketa; `LogConfig: Set CVar` znači *postavljeno*, ne *primenjeno* — meri efekat; editor Python:
-`unreal.log()` ne ide na stdout u commandlet režimu, `new_level()` ćuti ako mapa postoji,
-`unreal.Rotator(roll, pitch, yaw)`. Done šablon ima poseban red za cook/package.
+`unreal.log()` ne ide na stdout u commandlet režimu, `new_level()` ćuti ako mapa postoji, a za math
+strukture **uvek keyword argumenti** — `Rotator` ima tri razlicita redosleda (C++ `Pitch,Yaw,Roll`,
+reflektovana polja `Pitch,Yaw,Roll`, Python pozicioni `roll,pitch,yaw`), pa prepisivanje iz headera
+daje tiho pogresnu rotaciju. Done šablon ima poseban red za cook/package.
 
 ### UE: compile_commands.json
 
