@@ -77,3 +77,15 @@ InlayHints:
 
 Hover:
   ShowAKA: Yes
+
+# ---------------------------------------------------------------------------
+# Third-party plugini (vendored upstream kod): ugasi clang-tidy tamo, inace
+# svaki fajl baca stotine naming/braces dijagnostika koje nisu tvoje.
+# Otkomentarisi i prilagodi listu po projektu (fragment je po-path override):
+#
+# ---
+# If:
+#   PathMatch: .*/Plugins/(AirSim|CesiumForUnreal)/.*
+# Diagnostics:
+#   ClangTidy:
+#     Remove: "*"
