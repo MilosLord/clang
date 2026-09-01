@@ -81,11 +81,12 @@ Hover:
 # ---------------------------------------------------------------------------
 # Third-party plugini (vendored upstream kod): ugasi clang-tidy tamo, inace
 # svaki fajl baca stotine naming/braces dijagnostika koje nisu tvoje.
-# Otkomentarisi i prilagodi listu po projektu (fragment je po-path override):
+# Otkomentarisi i prilagodi listu po projektu. PathMatch se poredi RELATIVNO na
+# direktorijum ovog fajla (zato (.*/)? a ne .*/):
 #
 # ---
 # If:
-#   PathMatch: .*/Plugins/(AirSim|CesiumForUnreal)/.*
+#   PathMatch: (.*/)?Plugins/(AirSim|CesiumForUnreal)/.*
 # Diagnostics:
 #   ClangTidy:
 #     Remove: "*"
