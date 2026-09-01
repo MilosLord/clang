@@ -136,6 +136,32 @@ else
     printf '  SKIP cmake/c++ nije na PATH-u (CMake sample)\n'
 fi
 
+echo "== commit-msg hook (AI atribucija)"
+c="$(newrepo msg)"
+( cd "$work" && "$here/install.sh" std "$c" >/dev/null )
+[[ -x "$c/.git/hooks/commit-msg" ]] && ok "commit-msg hook instaliran" || bad "commit-msg hook nije instaliran"
+printf 'int main() { return 0; }\n' > "$c/m.cpp"; clang-format -i "$c/m.cpp"; git -C "$c" add -A
+expect_reject "odbija Co-Authored-By: Claude" "$c" \
+  "$(printf 'Add thing\n\nCo-Authored-By: Claude <noreply@anthropic.com>')" "AI attribution"
+git -C "$c" add -A
+expect_reject "odbija 'Generated with'" "$c" \
+  "$(printf 'Add thing\n\nGenerated with Claude Code')" "AI attribution"
+git -C "$c" add -A
+expect_reject "odbija claude-session link" "$c" \
+  "$(printf 'Add thing\n\nClaude-Session: https://claude.ai/code/abc')" "AI attribution"
+git -C "$c" add -A
+expect_pass "propusta obicnu poruku" "$c" "Add thing"
+printf 'int Other() { return 1; }\n' > "$c/n.cpp"; clang-format -i "$c/n.cpp"; git -C "$c" add -A
+expect_pass "propusta poruku koja POMINJE pravilo (obrasci su vezani za pocetak linije)" "$c" \
+  "$(printf 'Add rule\n\nRejects Co-Authored-By naming an assistant and "Generated with" lines.')"
+
+echo "== AGENTS.md: Comments i Git sekcije"
+grep -q '^## Comments' "$r/AGENTS.md" && ok "std AGENTS.md ima Comments sekciju" || bad "nema Comments sekciju"
+grep -q '^## Git' "$r/AGENTS.md" && ok "std AGENTS.md ima Git sekciju" || bad "nema Git sekciju"
+grep -q 'No AI attribution, ever' "$r/AGENTS.md" && ok "Git sekcija zabranjuje AI atribuciju" || bad "nema zabranu AI atribucije"
+u2="$(newrepo cmtue)"; ( cd "$work" && "$here/install.sh" unreal "$u2" >/dev/null )
+grep -q '^## Comments' "$u2/AGENTS.md" && grep -q '^## Git' "$u2/AGENTS.md" && ok "unreal profil takodje dobija Comments+Git" || bad "unreal profil nema Comments/Git"
+
 echo
 printf 'passed: %d  failed: %d\n' "$pass" "$failn"
 [[ $failn -eq 0 ]]

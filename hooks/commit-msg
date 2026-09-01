@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# commit-msg — odbija AI atribuciju u commit poruci.
+# Instalira ga install.sh. Vidi sekciju "Git" u AGENTS.md.
+#
+# Obrasci su vezani za POCETAK LINIJE namerno: atribucija se pojavljuje kao trailer
+# ili kao zasebna linija. Bez tog sidra poruka koja samo POMINJE pravilo (npr. commit
+# koji ga uvodi) bila bi odbijena.
+set -uo pipefail
+msg_file="$1"
+
+# Bez git-ovih komentara i bez diff-a koji 'commit -v' zakaci.
+body="$(sed -e '/^# ------------------------ >8 /,$d' -e '/^#/d' "$msg_file")"
+
+if printf '%s\n' "$body" | grep -qiE \
+    '^[[:space:]]*co-authored-by:[[:space:]]*.*(claude|anthropic|copilot|chatgpt|openai|codex|cursor|gemini)|^[[:space:]]*(🤖[[:space:]]*)?generated with|^[[:space:]]*claude-session:|^[[:space:]]*🤖'
+then
+    echo "commit-msg: AI attribution is not allowed in commit messages." >&2
+    echo "            Remove the Co-Authored-By / 'Generated with' / session-link line." >&2
+    echo "            See the Git section in AGENTS.md." >&2
+    exit 1
+fi
+exit 0

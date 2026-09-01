@@ -88,6 +88,37 @@ Forbidden regardless of tier: C-style casts, `using namespace` in headers, macro
 `goto`, `std::endl`, exceptions in UE code. Protocol values, limits and domain constants get
 names; obvious literals and idiomatic UE gameplay-tuning values do not.
 
+## Comments
+
+Code explains itself; comments explain what code cannot.
+
+- **Never comment what the code does.** `// increment counter`, `// loop over the actors`,
+  `// return the result` — delete on sight. If a function needs a comment to be readable, the
+  function is wrong: rename it or split it (see MUST on function size).
+- **Comment only the non-obvious *why*:** an upstream bug being worked around, a constraint not
+  visible locally, the provenance of a magic value, a deliberate tradeoff, an ordering that looks
+  arbitrary but is not. One or two lines, directly above the declaration, plain prose. No banners,
+  no `====` separators, no ASCII art, no restating the signature.
+- **Rare by default.** A file with a comment on every function was written by a machine and reads
+  like it. If much more than one function in ten needs one, the code is too clever.
+- Doc comments on *public* API in a header are a separate thing and are fine: contract, ownership,
+  units, thread affinity, lifetime. Still nothing about the implementation.
+- Never leave commentary about your own process: no `// Fixed the bug`, `// As requested`,
+  `// Changed from the previous version`, no dated notes, no initials. Git holds that.
+
+## Git
+
+- **No AI attribution, ever.** No `Co-Authored-By:` naming an assistant, no `Generated with …`,
+  no tool name, no session link, no emoji robot — not in the subject, body or trailers. Some
+  agents add these by default; turn it off. The commit reads as if a person wrote it, because a
+  person is responsible for it. Enforced by the `commit-msg` hook.
+- Subject: imperative, ≤ 72 chars, no trailing period. No `type:` prefix unless the repo already
+  uses one. `Fix rotator argument order in level generator`, not
+  `feat: implemented a fix for the rotator argument ordering issue`.
+- Body only when the *why* is not obvious from the diff: what broke, what constraint forced this
+  shape, what was measured. Wrap at 72. Never a bullet-point restatement of the diff.
+- One concern per commit. Never `--no-verify`.
+
 <!-- {{CMAKE}} -->
 
 <!-- {{UNREAL}} -->

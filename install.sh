@@ -10,7 +10,7 @@
 #   * .clang-format .clang-tidy .clangd  -> root projekta  (kopija, ili simlink sa --link)
 #   * .editorconfig                      -> UVEK kopija (za unreal se generise: tabovi)
 #   * AGENTS.md + CLAUDE.md              -> UVEK kopija (upisan profil; std += llm/cmake.md, unreal += llm/unreal.md)
-#   * hooks/pre-commit                   -> <git-dir>/hooks/pre-commit, UVEK kopija
+#   * hooks/pre-commit, hooks/commit-msg  -> <git-dir>/hooks/, UVEK kopija
 #
 # --link dakle prati repo samo za tri .clang-* fajla; ostalo je snapshot.
 # Postojece fajlove NE pregazi bez --force.
@@ -97,13 +97,15 @@ rm -f "$tmp"
 if git -C "$target" rev-parse --git-dir >/dev/null 2>&1; then
     hooks_dir="$(git -C "$target" rev-parse --path-format=absolute --git-path hooks)"
     mkdir -p "$hooks_dir"
-    dst="$hooks_dir/pre-commit"
-    if [[ -e "$dst" && $force -eq 0 ]]; then
-        echo "  skip   $dst (postoji; --force da pregazis)"
-    else
-        cp "$here/hooks/pre-commit" "$dst"; chmod +x "$dst"
-        echo "  hook   $dst"
-    fi
+    for h in pre-commit commit-msg; do
+        dst="$hooks_dir/$h"
+        if [[ -e "$dst" && $force -eq 0 ]]; then
+            echo "  skip   $dst (postoji; --force da pregazis)"
+        else
+            cp "$here/hooks/$h" "$dst"; chmod +x "$dst"
+            echo "  hook   $dst"
+        fi
+    done
 else
     echo "  (nije git repo — hook preskocen)"
 fi
