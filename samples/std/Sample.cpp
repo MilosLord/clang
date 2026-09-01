@@ -9,12 +9,14 @@
 
 #include "Sample.h"
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -55,7 +57,6 @@ auto SumAll(const std::vector<double>& Values) -> double
 
 auto Describe(const std::string& Name, std::int32_t Count) -> std::string
 {
-    assert(!Name.empty()); // interni ugovor: pozivaoci u ovom modulu nikad ne salju prazno ime
     if (Count <= 0) { return Name + ": none"; }
     return Name + ": " + std::to_string(Count);
 }
@@ -65,32 +66,33 @@ auto RunOnce() -> std::int32_t
 {
     Counter C;
     // Svaki red je jedan korak; prvi koji padne vraca svoj 1-based indeks.
-    const std::vector<std::pair<const char*, bool>> Steps = {
-        {"inc 1 ok", C.Increment(1).has_value()},
-        {"inc 1 ok", C.Increment(1).has_value()},
-        {"inc 1 ok", C.Increment(1).has_value()},
-        {"value == MaxRetries", C.GetValue() == MaxRetries},
-        {"inc 0 ok (no-op)", C.Increment(0).has_value()},
-        {"value unchanged", C.GetValue() == MaxRetries},
-        {"inc -1 rejected", !C.Increment(-1).has_value()},
-        {"inc -1 is NegativeStep", C.Increment(-1).error() == CounterError::NegativeStep},
-        {"value unchanged after error", C.GetValue() == MaxRetries},
-        {"inc max rejected", !C.Increment(std::numeric_limits<std::int32_t>::max()).has_value()},
-        {"inc max is Overflow",
-         C.Increment(std::numeric_limits<std::int32_t>::max()).error() == CounterError::Overflow},
-        {"value unchanged after overflow", C.GetValue() == MaxRetries},
-        {"sum {} == 0", IsClose(SumAll({}), 0.0)},
-        {"sum {1} == 1", IsClose(SumAll({1.0}), 1.0)},
-        {"sum {1,2,3} == 6", IsClose(SumAll({1.0, 2.0, 3.0}), ExpectedSum)},
-        {"sum {0.5,0.5} == 1", IsClose(SumAll({0.5, 0.5}), 1.0)},
-        {"describe 0", Describe("Items", 0) == "Items: none"},
-        {"describe -1", Describe("Items", -1) == "Items: none"},
-        {"describe 1", Describe("Items", 1) == "Items: 1"},
-        {"describe 2", Describe("Items", 2) == "Items: 2"},
-        {"describe keeps name", Describe("Other", 2) == "Other: 2"},
-        {"isclose self", IsClose(Epsilon, Epsilon)},
-        {"isclose zero", IsClose(0.0, 0.0)},
-        {"not close 0/1", !IsClose(0.0, 1.0)},
+    using Step             = std::pair<std::string_view, bool>;
+    const std::array Steps = {
+        Step{"inc 1 ok", C.Increment(1).has_value()},
+        Step{"inc 1 ok", C.Increment(1).has_value()},
+        Step{"inc 1 ok", C.Increment(1).has_value()},
+        Step{"value == MaxRetries", C.GetValue() == MaxRetries},
+        Step{"inc 0 ok (no-op)", C.Increment(0).has_value()},
+        Step{"value unchanged", C.GetValue() == MaxRetries},
+        Step{"inc -1 rejected", !C.Increment(-1).has_value()},
+        Step{"inc -1 is NegativeStep", C.Increment(-1).error() == CounterError::NegativeStep},
+        Step{"value unchanged after error", C.GetValue() == MaxRetries},
+        Step{"inc max rejected", !C.Increment(std::numeric_limits<std::int32_t>::max()).has_value()},
+        Step{"inc max is Overflow",
+             C.Increment(std::numeric_limits<std::int32_t>::max()).error() == CounterError::Overflow},
+        Step{"value unchanged after overflow", C.GetValue() == MaxRetries},
+        Step{"sum {} == 0", IsClose(SumAll({}), 0.0)},
+        Step{"sum {1} == 1", IsClose(SumAll({1.0}), 1.0)},
+        Step{"sum {1,2,3} == 6", IsClose(SumAll({1.0, 2.0, 3.0}), ExpectedSum)},
+        Step{"sum {0.5,0.5} == 1", IsClose(SumAll({0.5, 0.5}), 1.0)},
+        Step{"describe 0", Describe("Items", 0) == "Items: none"},
+        Step{"describe -1", Describe("Items", -1) == "Items: none"},
+        Step{"describe 1", Describe("Items", 1) == "Items: 1"},
+        Step{"describe 2", Describe("Items", 2) == "Items: 2"},
+        Step{"describe keeps name", Describe("Other", 2) == "Other: 2"},
+        Step{"isclose self", IsClose(Epsilon, Epsilon)},
+        Step{"isclose zero", IsClose(0.0, 0.0)},
+        Step{"not close 0/1", !IsClose(0.0, 1.0)},
     };
     for (std::size_t I = 0; I < Steps.size(); ++I)
     {

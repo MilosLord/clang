@@ -9,7 +9,8 @@ hooks/pre-commit                                 fail-closed: format, NOLINT dis
 tests/run.sh                                     installer + hook + samples; isto sto CI pokrece
 install.sh                                       ubaci profil + hook + LLM instrukcije u projekat
 llm/AGENTS.md                                    instrukcije za Claude Code / Codex (ide kao AGENTS.md + CLAUDE.md)
-samples/                                         referentni kod; CI ga formatira i tidy-uje
+llm/cmake.md                                     CMake sekcija; install.sh je ulepi samo u std profil
+samples/                                         referentni kod + moderni CMake; CI gradi na Linux/Windows/macOS
 .editorconfig
 ```
 
@@ -25,7 +26,16 @@ autoriteta (engine source ove verzije → Epic standard → docs), tabela lifeti
 (`TObjectPtr`/`TWeakObjectPtr`/subobject/raw lokalni), refleksija, `Super::` osim kad ugovor kaze
 drugacije, threading kao "nista nije thread-safe dok API ne kaze", moduli, tooling. Na kraju
 "Done" sablon za izvestaj. `install.sh` ga kopira kao `AGENTS.md` (Codex) i `CLAUDE.md` (Claude Code)
-sa upisanim aktivnim profilom. Menjaj ga ovde, ne u projektu.
+sa upisanim aktivnim profilom; marker `<!-- {{CMAKE}} -->` se za `std` zamenjuje sadrzajem
+`llm/cmake.md`, za `unreal` (UBT) se brise — da unreal projekat ne placa 40 linija mrtvih pravila.
+Menjaj ga ovde, ne u projektu.
+
+Za sto manje revizija model pre prve izmene mapira ugovor, implementaciju, pozivaoce, testove i
+build/CI putanju, pa u istom change-u zatvara svaki pogođeni caller, mock, config,
+serialization/reflection boundary i dokumentaciju. Value semantics i stack su default; heap
+postoji samo zbog konkretnog lifetime/size/stable-address/polymorphism razloga, bez
+`unique_ptr`/`shared_ptr` over-engineeringa. Veliki/runtime-neograniceni bufferi i `UObject` su
+namerni izuzeci.
 
 ## Instalacija u projekat
 
@@ -46,9 +56,14 @@ Alati (bez sudo, pip wheel):
 
 ```sh
 python3 -m venv ~/.local/opt/clang-tools
-~/.local/opt/clang-tools/bin/pip install 'clang-format==23.1.0' 'clang-tidy==22.1.8'   # verzije na kojima je testirano
+~/.local/opt/clang-tools/bin/pip install --upgrade clang-format clang-tidy
 ln -s ~/.local/opt/clang-tools/bin/clang-{format,tidy} ~/.local/bin/
 ```
+
+Lokalno verzije nisu zakucane: koristi novije alate ako oba configa parsiraju i
+`./tests/run.sh` prolazi. Po mogucnosti drzi clang-format/clang-tidy/clangd na istom LLVM majoru;
+PyPI release ritam to ponekad ne dozvoljava, pa uvek prijavi stvarne verzije. CI zasebno pin-uje
+poslednji testirani baseline radi reproduktivnosti; taj pin nije zabrana novijeg toolchain-a.
 
 ## Pravila koja vaze za SVE profile
 
@@ -85,6 +100,35 @@ Hook se zaobilazi sa `git commit --no-verify` — i onda napisi u poruci zasto.
 `unreal/.clang-format` ima `StatementMacros` za `UPROPERTY/UFUNCTION/GENERATED_BODY/…`
 i `TypenameMacros` za `TObjectPtr/TSubclassOf/…` da formatter ne lomi makroe.
 
+## Moderni CMake / platforme
+
+LLM instrukcije ne govore "uvek najnoviji CMake" naslepo. Model prvo cita podrzane CI image-e,
+toolchain fajlove, preset-e i dokumentaciju projekta. Za novi projekat postavlja:
+
+```cmake
+cmake_minimum_required(VERSION <najnoviji-na-najstarijem-podrzanom-sistemu>...<najnoviji-testiran>)
+```
+
+Donja granica je stvarni compatibility floor, a gornja ukljucuje moderne policy-je bez blokiranja
+novijeg CMake-a. Postojecem projektu se minimum ne podize radi jedne convenience komande bez
+namernog prekida podrske i istovremene izmene CI/docs.
+
+`samples/std/CMakeLists.txt` demonstrira target-based CMake: `target_compile_features(cxx_std_23)`,
+ispravan `PRIVATE/PUBLIC/INTERFACE`, bez globalnih flagova, MSVC/clang-cl naspram GNU/Clang
+frontend flagova, CTest i bez transitive `-Werror`. `CMakePresets.json` je prenosiv i ne zakucava
+generator: bira native default, dok build/test preset ispravno prosledjuje `Debug` i multi-config
+generatorima. Machine-local putanje pripadaju u nepraceni `CMakeUserPresets.json`.
+
+CI configure/build/test-uje isti sample na `ubuntu-latest`, `windows-latest` i `macos-latest`;
+tek posle toga sme da se zove cross-platform. Za clang tooling na Windows-u, gde Visual Studio
+generator ne emituje `compile_commands.json`, instrukcije traze poseban Ninja tooling preset uz
+zadrzan native MSVC build kao autoritativnu proveru.
+
+Hook nalazi bazu u rootu i u uobicajenim/preset build direktorijumima. Ako postoji vise build
+stabala, ne pogadja nasumicno nego odbija; izaberi jednom po repo-u:
+`git config clang.tidyBuildDir build/<preset>` (ili po commitu `CLANG_TIDY_BUILD_DIR=... git commit`).
+Oba prihvataju direktorijum ili direktnu putanju do `compile_commands.json`.
+
 ### UE: compile_commands.json
 
 Bez njega je clangd slep (`CoreMinimal.h not found`). UBT ga pise u **engine** root, ne u projekat:
@@ -99,13 +143,15 @@ cp <EngineRoot>/compile_commands.json /path/Foo/
 
 ## Testovi / CI
 
-`./tests/run.sh` (isto pokrece `.github/workflows/lint.yml`, sa pinovanim `clang-format==23.1.0`,
-`clang-tidy==22.1.8`): installer iz tudjeg cwd-a stavlja hook u pravi repo, `unreal --link` nema
+`./tests/run.sh` (isto pokrece `.github/workflows/lint.yml`, sa reproduktivnim testiranim baseline-om
+`clang-format==23.1.0`, `clang-tidy==22.1.8`): installer iz tudjeg cwd-a stavlja hook u pravi repo, `unreal --link` nema
 pokvarenih simlinkova, placeholder zamenjen; hook — 20 linija prolazi, 40 one-shot sa razlogom
 prolazi, bez razloga pada, 60 sa one-shot pada (hard cap), `NOLINTBEGIN` pada, goli `NOLINTNEXTLINE`
 pada, NOLINT za drugi check prolazi, neformatiran pada, 7 parametara sa one-shot pada, neparsirljiv
-fajl pada, bez clang-tidy pada, nema zaostalih temp fajlova; samples — formatirani, tidy-clean sa
-`--warnings-as-errors=*`, `RunOnce` je *stvarno* >30 linija, `SampleTest` se kompajlira i prolazi.
+fajl pada, clang-tidy crash/nenulti status pada, bez clang-tidy pada, collision-safe temp kopija ne
+dira korisnikov istoimeni fajl i nema zaostalih temp fajlova; samples — formatirani, tidy-clean sa
+`--warnings-as-errors=*`, `RunOnce` je *stvarno* >30 linija, `SampleTest` se kompajlira i prolazi,
+CMake `--workflow --preset dev` (configure + build + CTest) prolazi i emituje `compile_commands.json`; dve compile baze bez izbora padaju, `git config clang.tidyBuildDir` ih resava.
 Ako promenis profil a ne azuriras `samples/` — pukne. Namerno.
 
 `samples/std/` prati `llm/AGENTS.md` doslovno: `[[nodiscard]]` gde rezultat nosi informaciju,

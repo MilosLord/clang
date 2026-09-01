@@ -9,7 +9,7 @@
 # Radi:
 #   * .clang-format .clang-tidy .clangd  -> root projekta  (kopija, ili simlink sa --link)
 #   * .editorconfig                      -> UVEK kopija (za unreal se generise: tabovi)
-#   * AGENTS.md + CLAUDE.md              -> UVEK kopija (upisuje se aktivni profil)
+#   * AGENTS.md + CLAUDE.md              -> UVEK kopija (upisan profil; std dobija i llm/cmake.md)
 #   * hooks/pre-commit                   -> <git-dir>/hooks/pre-commit, UVEK kopija
 #
 # --link dakle prati repo samo za tri .clang-* fajla; ostalo je snapshot.
@@ -73,7 +73,12 @@ rm -f "$tmp"
 # LLM instrukcije: AGENTS.md (Codex & co) + CLAUDE.md (Claude Code), isti sadrzaj,
 # sa upisanim aktivnim profilom -> uvek kopija.
 tmp="$(mktemp)"
-sed "s/{{PROFILE}}/$profile/g" "$here/llm/AGENTS.md" > "$tmp"
+if [[ "$profile" == "std" ]]; then
+    # <!-- {{CMAKE}} --> marker -> sadrzaj llm/cmake.md (samo std; unreal gradi UBT)
+    sed -e "s/{{PROFILE}}/$profile/g" -e "/<!-- {{CMAKE}} -->/{r $here/llm/cmake.md" -e "d}" "$here/llm/AGENTS.md" > "$tmp"
+else
+    sed -e "s/{{PROFILE}}/$profile/g" -e "/<!-- {{CMAKE}} -->/d" "$here/llm/AGENTS.md" > "$tmp"
+fi
 for name in AGENTS.md CLAUDE.md; do
     put "$tmp" "$target/$name" copy
 done

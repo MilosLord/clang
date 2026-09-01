@@ -1,9 +1,17 @@
 name: lint
 
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Sve provere zive u tests/run.sh (isti skript radi i lokalno):
 #   installer (hook u pravi repo, --link bez pokvarenih linkova, placeholder),
-#   hook (pozitivni + negativni slucajevi, fail-closed bez alata),
-#   samples (format, tidy, RunOnce stvarno >30 linija, SampleTest build + run).
+#   hook (pozitivni + negativni slucajevi, fail-closed bez alata/crash-a, collision-safe temp),
+#   samples (format, tidy, RunOnce stvarno >30 linija, SampleTest + CMake build/test).
+# Poseban matrix job proverava CMake sample native na Linux, Windows i macOS.
 #
 # Verzije alata su PINOVANE na ono sto je testirano lokalno. Wildcard grupe (bugprone-*)
 # menjaju ponasanje izmedju LLVM izdanja — bump je namerna odluka, ne slucajnost.
@@ -15,8 +23,9 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pinned clang-format / clang-tidy
         run: |
@@ -32,3 +41,23 @@ jobs:
 
       - name: tests/run.sh
         run: ./tests/run.sh
+
+  cmake-sample:
+    name: CMake (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Toolchain versions
+        run: |
+          cmake --version
+          cmake -E capabilities
+
+      - name: Workflow preset 'dev' (configure + build + CTest)
+        working-directory: samples/std
+        run: cmake --workflow --preset dev
