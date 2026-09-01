@@ -1,0 +1,79 @@
+# unreal profil — clangd. Ovo je ISTI sadrzaj koji nvim plugin `milos_unreal`
+# (VimRC/lua/milos_unreal/clangd/setup.lua, SPEC_DEFAULT) pise u root projekta,
+# plus ClangTidy sekcija da .clang-tidy radi inline u editoru.
+#
+# Remove lista brise MSVC flagove koje UBT ubacuje u compile_commands.json na
+# Windows-u; na Linuxu su no-op. Add lista gusi UE-specificne warninge koje
+# clang inace prijavljuje na svakom drugom engine headeru.
+#
+# NAPOMENA: ako plugin naidje na ovaj fajl bez svog MAGIC headera, tretira ga kao
+# "user-owned" i ne dira ga. To je zeljeno ponasanje — repo je izvor istine.
+
+CompileFlags:
+  Remove:
+    - "-fdiagnostics-absolute-paths"
+    - "/Zc*"
+    - "/Z7"
+    - "/Zi"
+    - "/Zo"
+    - "/permissive-"
+    - "/Ob*"
+    - "/GR*"
+    - "/EH*"
+    - "/GF"
+    - "/Gy"
+    - "/Gd"
+    - "/Gm-"
+    - "/Gw"
+    - "/MP"
+    - "/W*"
+    - "/w*"
+    - "/TP"
+    - "/FC"
+    - "/FS"
+    - "/Fo*"
+    - "/Fp*"
+    - "/Fd*"
+    - "/errorReport:*"
+    - "/bigobj"
+    - "/utf-8"
+    - "/external:*"
+    - "/analyze*"
+    - "/experimental:*"
+    - "-fno-delayed-template-parsing"
+    - "-fno-builtin-malloc"
+    - "-fno-builtin-calloc"
+    - "-fno-builtin-realloc"
+    - "-fno-builtin-free"
+  Add:
+    - "-xc++"
+    - "-ferror-limit=0"
+    - "-Wno-unknown-attributes"
+    - "-Wno-unknown-pragmas"
+    - "-Wno-unknown-warning-option"
+    - "-Wno-unused-command-line-argument"
+    - "-Wno-microsoft-enum-value"
+    - "-Wno-pragma-once-outside-header"
+
+Index:
+  Background: Build
+  StandardLibrary: Yes
+
+Completion:
+  AllScopes: true
+
+Diagnostics:
+  ClangTidy:
+    FastCheckFilter: Loose
+  Suppress:
+    - "drv_unknown_argument"
+    - "pp_including_mainfile_in_preamble"
+  UnusedIncludes: None
+  MissingIncludes: None
+
+InlayHints:
+  ParameterNames: Yes
+  DeducedTypes: Yes
+
+Hover:
+  ShowAKA: Yes

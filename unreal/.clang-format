@@ -1,0 +1,173 @@
+---
+# unreal profil — Epic coding standard (tabovi, Allman, PascalCase), bez Go-style
+# poravnanja jer razbija UPROPERTY/UFUNCTION blokove.
+#
+# Bitno:
+#   * `*.generated.h` MORA biti poslednji include u headeru (UHT zahteva). Regex ispod
+#     mu daje najvisi Priority pa ga SortIncludes uvek gura na dno.
+#   * StatementMacros / AttributeMacros kazu formateru da UPROPERTY() & co. nisu
+#     pozivi funkcija, pa ih ne lomi ni ne uvlaci.
+Language:        Cpp
+BasedOnStyle:    LLVM
+Standard:        c++20
+
+# --- Indentation: tabovi (UE standard) ------------------------------------
+UseTab:                         Always
+TabWidth:                       4
+IndentWidth:                    4
+ContinuationIndentWidth:        4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset:           -4
+NamespaceIndentation:           All
+IndentCaseLabels:               true
+IndentCaseBlocks:               false
+IndentPPDirectives:             None
+IndentWrappedFunctionNames:     false
+LambdaBodyIndentation:          Signature
+
+# --- Braces: Allman ---------------------------------------------------------
+BreakBeforeBraces:              Allman
+
+# --- Line length ------------------------------------------------------------
+ColumnLimit:                    140
+ReflowComments:                 false
+BreakStringLiterals:            false
+
+# --- Pointer / reference: left (FVector* Ptr, const AActor& Ref) -------------
+PointerAlignment:               Left
+ReferenceAlignment:             Left
+DerivePointerAlignment:         false
+QualifierAlignment:             Custom
+QualifierOrder:                 [friend, static, inline, constexpr, const, volatile, type]
+
+# --- Short statements: UE ne voli jednolinijske ------------------------------
+AllowShortIfStatementsOnASingleLine:   Never
+AllowShortLoopsOnASingleLine:          false
+AllowShortFunctionsOnASingleLine:      InlineOnly
+AllowShortBlocksOnASingleLine:         Never
+AllowShortCaseLabelsOnASingleLine:     false
+AllowShortLambdasOnASingleLine:        Inline
+AllowShortEnumsOnASingleLine:          false
+
+# --- Alignment: sve OFF (UPROPERTY blokovi) ---------------------------------
+AlignAfterOpenBracket:          DontAlign
+AlignOperands:                  DontAlign
+AlignEscapedNewlines:           Left
+AlignArrayOfStructures:         None
+AlignConsecutiveAssignments:    None
+AlignConsecutiveDeclarations:   None
+AlignConsecutiveMacros:         None
+AlignConsecutiveBitFields:      None
+AlignTrailingComments:
+    Kind:           Never
+    OverEmptyLines: 0
+
+# --- Spaces -----------------------------------------------------------------
+SpaceBeforeParens:                       ControlStatements
+SpaceAfterCStyleCast:                    false
+SpaceAfterTemplateKeyword:               false
+SpaceBeforeCpp11BracedList:              false
+SpaceBeforeCtorInitializerColon:         true
+SpaceBeforeInheritanceColon:             true
+SpaceBeforeRangeBasedForLoopColon:       true
+SpaceInEmptyBlock:                       false
+SpacesBeforeTrailingComments:            1
+SpacesInAngles:                          Never
+SpacesInParens:                          Never
+
+# --- UE makroi ---------------------------------------------------------------
+StatementMacros:
+    - UPROPERTY
+    - UFUNCTION
+    - UCLASS
+    - USTRUCT
+    - UENUM
+    - UINTERFACE
+    - UDELEGATE
+    - UMETA
+    - GENERATED_BODY
+    - GENERATED_UCLASS_BODY
+    - GENERATED_USTRUCT_BODY
+    - GENERATED_IINTERFACE_BODY
+    - IMPLEMENT_MODULE
+    - IMPLEMENT_GAME_MODULE
+    - IMPLEMENT_PRIMARY_GAME_MODULE
+    - DECLARE_LOG_CATEGORY_EXTERN
+    - DEFINE_LOG_CATEGORY
+    - DECLARE_DYNAMIC_MULTICAST_DELEGATE
+    - DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam
+    - DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams
+    - DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams
+    - DECLARE_DYNAMIC_DELEGATE
+    - DECLARE_DYNAMIC_DELEGATE_OneParam
+    - DECLARE_DYNAMIC_DELEGATE_TwoParams
+    - DECLARE_MULTICAST_DELEGATE
+    - DECLARE_MULTICAST_DELEGATE_OneParam
+    - DECLARE_MULTICAST_DELEGATE_TwoParams
+    - DECLARE_DELEGATE
+    - DECLARE_DELEGATE_OneParam
+    - DECLARE_DELEGATE_TwoParams
+    - DECLARE_DELEGATE_RetVal
+AttributeMacros:
+    - UE_NODISCARD
+    - UE_DEPRECATED
+    - UE_FORCEINLINE_HINT
+    - FORCEINLINE
+    - FORCENOINLINE
+    - UE_API
+TypenameMacros:
+    - TSubclassOf
+    - TObjectPtr
+    - TWeakObjectPtr
+    - TSoftObjectPtr
+    - TSoftClassPtr
+MacroBlockBegin: '^BEGIN_(DEFINE|SHADER_PARAMETER|UNIFORM_BUFFER)'
+MacroBlockEnd:   '^END_(DEFINE|SHADER_PARAMETER|UNIFORM_BUFFER)'
+
+# --- Includes ---------------------------------------------------------------
+SortIncludes:                   CaseSensitive
+IncludeBlocks:                  Regroup
+IncludeCategories:
+    # *.generated.h -> UVEK POSLEDNJI (UHT). Mora biti prvi regex u listi.
+    - Regex:    '\.generated\.h"$'
+      Priority: 100
+    # CoreMinimal odmah posle sopstvenog headera
+    - Regex:    '^"CoreMinimal\.h"'
+      Priority: 2
+    # ostali Engine / plugin headeri pod navodnicima
+    - Regex:    '^".*"'
+      Priority: 3
+    # std headeri (retko u UE, ali ako ih ima -> ispod engine-a)
+    - Regex:    '^<[[:alnum:]_]+>'
+      Priority: 4
+    - Regex:    '^<.*>'
+      Priority: 5
+IncludeIsMainRegex:             '$'
+
+# --- Wrapping ----------------------------------------------------------------
+AllowAllArgumentsOnNextLine:               true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments:                          true
+BinPackParameters:                         true
+BreakBeforeBinaryOperators:                None
+BreakBeforeTernaryOperators:               true
+BreakConstructorInitializers:              BeforeComma
+BreakInheritanceList:                      BeforeComma
+PackConstructorInitializers:               Never
+
+# --- Empty lines --------------------------------------------------------------
+MaxEmptyLinesToKeep:                 1
+KeepEmptyLinesAtTheStartOfBlocks:    false
+EmptyLineBeforeAccessModifier:       Always
+EmptyLineAfterAccessModifier:        Never
+SeparateDefinitionBlocks:            Leave    # 'Always' ubacuje prazan red izmedju UCLASS() i class
+
+# --- Enforcement --------------------------------------------------------------
+InsertBraces:                   true
+InsertNewlineAtEOF:             true
+
+# --- C++ ------------------------------------------------------------------------
+FixNamespaceComments:           true
+Cpp11BracedListStyle:           true
+CompactNamespaces:              false
+...

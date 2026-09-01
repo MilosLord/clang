@@ -1,0 +1,127 @@
+---
+# unreal profil — isti 30/50 rezim kao std (vidi std/.clang-tidy), ali bez check-ova
+# koji se tuku sa UE makroima i UHT-om:
+#
+#   modernize-use-trailing-return-type   UHT ne parsira `auto Foo() -> int` na UFUNCTION
+#   cppcoreguidelines-pro-type-vararg    UE_LOG / Printf su varargs
+#   misc-non-private-member-variables    public UPROPERTY je normalna stvar
+#   avoid-non-const-global-variables     DEFINE_LOG_CATEGORY, IMPLEMENT_MODULE
+#   readability-magic-numbers            gameplay tuning vrednosti (Speed = 600.f) su svuda
+#   modernize-use-using / std::*         UE ima svoje tipove (TArray, FString, int32)
+#   misc-include-cleaner                 UE headeri se transitivno vuku kroz CoreMinimal
+#
+# Naming: UE PascalCase. Prefiksi A/U/F/E/I/T/S po baznoj klasi se NE MOGU proveriti
+# clang-tidy-jem (ne zna baznu klasu), pa se proverava samo CamelCase.
+# `b` prefiks za bool takodje ne (nema type-dependent naming) — code review.
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-reserved-identifier,
+  -bugprone-macro-parentheses,
+  cppcoreguidelines-avoid-goto,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-narrowing-conversions,
+  cppcoreguidelines-prefer-member-initializer,
+  cppcoreguidelines-pro-type-cstyle-cast,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-virtual-class-destructor,
+  misc-const-correctness,
+  misc-misplaced-const,
+  misc-redundant-expression,
+  misc-static-assert,
+  misc-unconventional-assign-operator,
+  misc-unused-alias-decls,
+  misc-unused-using-decls,
+  modernize-avoid-bind,
+  modernize-loop-convert,
+  modernize-make-shared,
+  modernize-make-unique,
+  modernize-redundant-void-arg,
+  modernize-return-braced-init-list,
+  modernize-use-auto,
+  modernize-use-bool-literals,
+  modernize-use-default-member-init,
+  modernize-use-emplace,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-*,
+  -performance-no-int-to-ptr,
+  readability-avoid-const-params-in-decls,
+  readability-braces-around-statements,
+  readability-const-return-type,
+  readability-container-size-empty,
+  readability-delete-null-pointer,
+  readability-duplicate-include,
+  readability-else-after-return,
+  readability-function-cognitive-complexity,
+  readability-function-size,
+  readability-identifier-naming,
+  readability-inconsistent-declaration-parameter-name,
+  readability-isolate-declaration,
+  readability-make-member-function-const,
+  readability-misleading-indentation,
+  readability-non-const-parameter,
+  readability-qualified-auto,
+  readability-redundant-*,
+  readability-simplify-boolean-expr,
+  readability-static-accessed-through-instance
+
+WarningsAsErrors: >
+  bugprone-use-after-move,
+  bugprone-dangling-handle,
+  bugprone-infinite-loop,
+  cppcoreguidelines-slicing,
+  modernize-use-override,
+  readability-braces-around-statements
+
+# Ne diraj Engine/ i generisano — samo Source/ i Plugins/*/Source/
+HeaderFilterRegex: '(Source|Plugins/[^/]+/Source)/.*\.h$'
+ExcludeHeaderFilterRegex: '.*(\.generated\.h|\.gen\.cpp|/Intermediate/|/Engine/Source/).*'
+FormatStyle: file
+
+CheckOptions:
+  # --- velicina / kompleksnost (isto kao std) ------------------------------
+  readability-function-size.LineThreshold: 30
+  readability-function-size.StatementThreshold: 60
+  readability-function-size.BranchThreshold: 8
+  readability-function-size.ParameterThreshold: 5
+  readability-function-size.NestingThreshold: 4
+  readability-function-size.VariableThreshold: 12
+  readability-function-cognitive-complexity.Threshold: 15
+  readability-function-cognitive-complexity.IgnoreMacros: true
+
+  # --- naming: UE PascalCase ------------------------------------------------
+  readability-identifier-naming.NamespaceCase: CamelCase
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.FunctionCase: CamelCase
+  readability-identifier-naming.FunctionIgnoredRegexp: '^(main|operator.*)$'
+  readability-identifier-naming.MethodCase: CamelCase
+  readability-identifier-naming.MethodIgnoredRegexp: '^(operator.*|begin|end|Num|IsValid.*|GetTypeHash)$'
+  readability-identifier-naming.VariableCase: CamelCase
+  readability-identifier-naming.ParameterCase: CamelCase
+  readability-identifier-naming.MemberCase: CamelCase
+  readability-identifier-naming.ConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  readability-identifier-naming.MacroDefinitionIgnoredRegexp: '^_.*|.*_API$|.*_H$'
+  readability-identifier-naming.VariableIgnoredRegexp: '^[a-z]{1,2}$'
+  readability-identifier-naming.ParameterIgnoredRegexp: '^[a-z]{1,2}$'
+
+  # --- ostalo ---------------------------------------------------------------
+  modernize-use-override.IgnoreDestructors: false
+  modernize-use-auto.MinTypeNameLength: 8
+  readability-qualified-auto.AddConstToQualified: true
+  cppcoreguidelines-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  performance-unnecessary-value-param.AllowedTypes: 'TObjectPtr;TWeakObjectPtr;TSubclassOf;FName'
+...

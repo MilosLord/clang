@@ -1,0 +1,56 @@
+name: lint
+
+# Sta CI proverava:
+#   1. oba profila su validan YAML za clang-format (dump-config)
+#   2. samples/ su formatirani tacno onako kako profil kaze (--dry-run --Werror)
+#   3. samples/ prolaze clang-tidy sa profilom (0 warninga)
+#   4. install.sh + hook rade u praznom repo-u i ODBIJAJU funkciju > 50 linija
+# Ako neko promeni profil a ne azurira samples/ (ili obrnuto) — ovo pukne.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format / clang-tidy (pip wheels, iste verzije kao lokalno)
+        run: |
+          python3 -m pip install --quiet clang-format clang-tidy
+          clang-format --version
+          clang-tidy --version | head -2
+
+      - name: 1. profiles parse
+        run: |
+          for p in std unreal; do
+            (cd "$p" && clang-format --dump-config > /dev/null) || { echo "::error::$p/.clang-format ne parsira"; exit 1; }
+          done
+
+      - name: 2. samples are formatted
+        run: |
+          clang-format --style=file:std/.clang-format    --dry-run --Werror samples/std/*.cpp samples/std/*.h
+          clang-format --style=file:unreal/.clang-format --dry-run --Werror samples/unreal/*.cpp samples/unreal/*.h samples/unreal/stub/CoreMinimal.h
+
+      - name: 3. samples pass clang-tidy
+        run: |
+          set -o pipefail
+          clang-tidy --config-file=std/.clang-tidy --quiet --warnings-as-errors='*' \
+            samples/std/Sample.cpp -- -std=c++23 -Isamples/std
+          clang-tidy --config-file=unreal/.clang-tidy --quiet --warnings-as-errors='*' \
+            samples/unreal/SampleActor.cpp -- -std=c++20 -Isamples/unreal/stub -Isamples/unreal
+
+      - name: 4. hook rejects >50-line function
+        run: |
+          t="$(mktemp -d)"; cd "$t"
+          git init -q . && git config user.email ci@ci && git config user.name ci
+          "$GITHUB_WORKSPACE/install.sh" std "$t"
+          python3 - <<'PY'
+          body = "\n".join("    X += 1;" for _ in range(55))
+          open("Big.cpp", "w").write(f"// NOLINTNEXTLINE(readability-function-size)\nauto Big() -> int\n{{\n    int X = 0;\n{body}\n    return X;\n}}\n")
+          PY
+          clang-format -i Big.cpp && git add Big.cpp
+          if git commit -q -m big; then echo "::error::hook je PROPUSTIO funkciju od 60 linija"; exit 1; fi
+          echo "hook OK: odbio 60-line funkciju uprkos NOLINT-u"

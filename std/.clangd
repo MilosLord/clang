@@ -1,0 +1,49 @@
+# std profil — clangd konfiguracija. (Ime fajla MORA biti `.clangd`, ne `.clang`.)
+#
+# CompileFlags.Add se primenjuje i preko compile_commands.json, pa ce -std=c++23
+# pregaziti ono sto build sistem prosledjuje. To je namerno: hocemo isti standard
+# u editoru bez obzira na CMake podesavanja.
+
+CompileFlags:
+  Add:
+    - -std=c++23
+    - -Wall
+    - -Wextra
+    - -Wpedantic
+    - -Wshadow
+    - -Wconversion
+    - -Wsign-conversion
+    - -Wnon-virtual-dtor
+    - -Wold-style-cast
+    - -Wcast-align
+    - -Wunused
+    - -Woverloaded-virtual
+    - -Wnull-dereference
+    - -Wdouble-promotion
+    - -Wimplicit-fallthrough
+  Compiler: clang++
+
+Diagnostics:
+  # clang-tidy radi inline u editoru; skup check-ova dolazi iz ./.clang-tidy
+  ClangTidy:
+    FastCheckFilter: Loose
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+  Suppress:
+    - pp_including_mainfile_in_preamble
+
+Index:
+  Background: Build
+  StandardLibrary: Yes
+
+Completion:
+  AllScopes: true
+
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+  Designators: Yes
+
+Hover:
+  ShowAKA: Yes

@@ -30,7 +30,6 @@ BreakStringLiterals:            true
 PointerAlignment:               Left
 ReferenceAlignment:             Left
 DerivePointerAlignment:         false
-QualifierAlignment:             Leave
 
 # --- Short statements ------------------------------------------------------
 AllowShortIfStatementsOnASingleLine:   WithoutElse
@@ -102,12 +101,13 @@ IncludeCategories:
     # std C++ headers bez ekstenzije: <vector>, <string> -> Priority 2
     - Regex:    '^<[[:alnum:]_]+>'
       Priority: 2
+    # sistem (Windows/DirectX/WinSock) -> Priority 4 (poslednja grupa)
+    # MORA pre generickog '<*.h>' regexa: clang-format uzima PRVI regex koji se poklopi.
+    - Regex:    '^<(windows|winsock|d3d|direct|Xinput|dxgi|wrl|combaseapi)'
+      Priority: 4
     # ostali <*.h> (third-party libs, npr. <GL/glew.h>) -> Priority 3
     - Regex:    '^<.*\.(h|hpp|hxx)>'
       Priority: 3
-    # sistem (Windows/DirectX/WinSock) -> Priority 4 (poslednja grupa)
-    - Regex:    '^<(windows|winsock|d3d|direct|Xinput|dxgi|wrl|combaseapi)'
-      Priority: 4
 IncludeIsMainRegex:             '(Test)?$'
 
 # --- Line wrapping / packing ----------------------------------------------
@@ -128,6 +128,13 @@ KeepEmptyLinesAtTheStartOfBlocks:    false
 EmptyLineBeforeAccessModifier:       LogicalBlock
 EmptyLineAfterAccessModifier:        Never
 SeparateDefinitionBlocks:            Leave
+
+# --- Enforcement -----------------------------------------------------------
+InsertBraces:                   true    # if/for/while/do uvek sa {}
+InsertNewlineAtEOF:             true
+RemoveParentheses:              ReturnStatement   # return (x); -> return x;
+QualifierAlignment:             Custom  # west const: 'const int*' ne 'int const*'
+QualifierOrder:                 [friend, static, inline, constexpr, const, volatile, restrict, type]
 
 # --- C++ specifics ---------------------------------------------------------
 FixNamespaceComments:           true
