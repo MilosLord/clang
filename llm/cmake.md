@@ -21,9 +21,19 @@ replace a working build system with CMake unless asked.
   `make`/`ninja`/`msbuild` in portable scripts.
 - Pin fetched dependencies to a release or immutable commit; follow the project's package
   manager/lockfile. No floating `main`, no surprise network downloads.
-- `compile_commands.json` (needed by clangd / clang-tidy / the hook) is emitted only by Makefile
-  and Ninja generators. On Windows keep the native MSVC build as the real verification and add a
-  Ninja tooling preset for the database.
+- `compile_commands.json` (needed by clangd / clang-tidy / the pre-commit hook) is a build
+  artifact you must ask for: set `"CMAKE_EXPORT_COMPILE_COMMANDS": true` in the configure
+  preset's `cacheVariables` (see `samples/std/CMakePresets.json`), not with `set(... CACHE ...)`
+  in `CMakeLists.txt` — it is a developer/tooling setting, not part of the project's build
+  contract, and a consumer adding the project via `add_subdirectory`/`FetchContent` should not
+  inherit it. Only Makefile and Ninja generators honour it; Visual Studio and Xcode silently
+  emit nothing, so on Windows keep the native MSVC build as the authoritative verification and
+  add a separate Ninja tooling preset just for the database.
+- Keep exactly one database reachable: the tools look in the repo root and in the usual build
+  dirs, and refuse to guess when several build trees exist. Either symlink the chosen one to the
+  root (`ln -s build/dev/compile_commands.json .`, gitignored) or pin it once per repo with
+  `git config clang.tidyBuildDir build/<preset>`. Regenerate it after any change to sources,
+  flags or targets — a stale database makes clang-tidy analyse code that no longer exists.
 - Platform branches express a real API/ABI/filesystem difference, not a guessed compiler. A change
   is "cross-platform" only after configure + build + tests ran on every claimed OS/compiler family.
 

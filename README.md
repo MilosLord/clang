@@ -128,6 +128,12 @@ tek posle toga sme da se zove cross-platform. Za clang tooling na Windows-u, gde
 generator ne emituje `compile_commands.json`, instrukcije traze poseban Ninja tooling preset uz
 zadrzan native MSVC build kao autoritativnu proveru.
 
+`compile_commands.json` se ne dobija sam od sebe: instrukcije traze
+`"CMAKE_EXPORT_COMPILE_COMMANDS": true` u `cacheVariables` configure preseta (kao u
+`samples/std/CMakePresets.json`), a ne `set(... CACHE ...)` u `CMakeLists.txt` — to je alat
+developera, ne deo build ugovora koji `add_subdirectory`/`FetchContent` potrosac nasledjuje.
+Postuje ga samo Makefile/Ninja generator; Visual Studio i Xcode cute i ne emituju nista.
+
 Hook nalazi bazu u rootu i u uobicajenim/preset build direktorijumima. Ako postoji vise build
 stabala, ne pogadja nasumicno nego odbija; izaberi jednom po repo-u:
 `git config clang.tidyBuildDir build/<preset>` (ili po commitu `CLANG_TIDY_BUILD_DIR=... git commit`).

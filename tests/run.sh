@@ -162,6 +162,12 @@ grep -q 'No AI attribution, ever' "$r/AGENTS.md" && ok "Git sekcija zabranjuje A
 u2="$(newrepo cmtue)"; ( cd "$work" && "$here/install.sh" unreal "$u2" >/dev/null )
 grep -q '^## Comments' "$u2/AGENTS.md" && grep -q '^## Git' "$u2/AGENTS.md" && ok "unreal profil takodje dobija Comments+Git" || bad "unreal profil nema Comments/Git"
 
+echo "== CMake instrukcije: compile_commands.json"
+grep -q 'CMAKE_EXPORT_COMPILE_COMMANDS' "$r/AGENTS.md" \
+  && ok "AGENTS.md trazi CMAKE_EXPORT_COMPILE_COMMANDS" || bad "AGENTS.md ne pominje CMAKE_EXPORT_COMPILE_COMMANDS"
+grep -q '"CMAKE_EXPORT_COMPILE_COMMANDS": true' "$here/samples/std/CMakePresets.json" \
+  && ok "sample preset zaista ukljucuje bazu (instrukcija i sample u sinhronu)" || bad "sample preset ne ukljucuje CMAKE_EXPORT_COMPILE_COMMANDS"
+
 echo
 printf 'passed: %d  failed: %d\n' "$pass" "$failn"
 [[ $failn -eq 0 ]]
