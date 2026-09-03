@@ -16,9 +16,10 @@ concurrency:
 # Verzije alata su PINOVANE na ono sto je testirano lokalno. Wildcard grupe (bugprone-*)
 # menjaju ponasanje izmedju LLVM izdanja — bump je namerna odluka, ne slucajnost.
 
+# CI je namerno iskljucen: workflow se pokrece samo rucno (Actions -> lint -> Run workflow),
+# da ne trosi GitHub Actions minute. Vrati `push:` i `pull_request:` da se opet pali sam.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   lint:
